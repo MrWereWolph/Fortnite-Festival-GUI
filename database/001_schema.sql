@@ -99,6 +99,7 @@ create table if not exists tracks (
 
     -- Misc Epic fields
     mmo integer,
+    ci numeric,
     ag text,
     sm text,
 
