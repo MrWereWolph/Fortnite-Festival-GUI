@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
 """
-FNFest GUI5 - Epic Spark Tracks Supabase Importer
+FNFest GUI5 - Batched Epic Spark Tracks Supabase Importer
 
 Purpose:
-    Fetch Epic's spark-tracks JSON, preserve raw track JSON, and upsert
-    normalized Fortnite Festival catalog data into Supabase/Postgres.
-
-Requirements:
-    pip install -r requirements.txt
+    Fetch Epic's spark-tracks JSON, preserve raw JSON, and upsert normalized
+    Fortnite Festival catalog data into Supabase/Postgres with far fewer
+    API requests than the original one-track-at-a-time importer.
 
 Required .env values:
     SUPABASE_URL=
     SUPABASE_SERVICE_ROLE_KEY=
 
 Important:
-    The service role key must never be exposed to browser/frontend code.
+    Never expose the service role key in frontend/browser code.
 """
 
 from __future__ import annotations
@@ -63,6 +61,8 @@ JAM_PART_FIELD_MAP = {
 
 INTENSITY_SKIP_FIELDS = {"_type"}
 
+CHUNK_SIZE = 250
+
 
 @dataclass(frozen=True)
 class TrackPage:
@@ -71,18 +71,24 @@ class TrackPage:
     track: dict[str, Any]
 
 
+def now_utc() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def chunked(items: list[dict[str, Any]], size: int = CHUNK_SIZE):
+    for index in range(0, len(items), size):
+        yield items[index : index + size]
+
+
 def parse_iso_datetime(value: Any) -> str | None:
     if not isinstance(value, str) or not value.strip():
         return None
-
-    # Postgres accepts ISO timestamps with Z, so preserve the string.
     return value
 
 
 def parse_uuidish(value: Any) -> str | None:
     if not isinstance(value, str) or not value.strip():
         return None
-
     return value.strip()
 
 
@@ -95,25 +101,15 @@ def parse_qi(value: Any) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         return None
 
-    if isinstance(parsed, dict):
-        return parsed
+    return parsed if isinstance(parsed, dict) else None
 
-    return None
+
+def is_probably_url(value: str) -> bool:
+    parsed = urlparse(value)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
 def compute_camelot_code(musical_key: str | None, mode: str | None) -> str | None:
-    """
-    Convert key/mode to Camelot notation.
-
-    Camelot wheel:
-        Minor:
-            Ab 01A, Eb 02A, Bb 03A, F 04A, C 05A, G 06A,
-            D 07A, A 08A, E 09A, B 10A, Gb 11A, Db 12A
-
-        Major:
-            B 01B, Gb 02B, Db 03B, Ab 04B, Eb 05B, Bb 06B,
-            F 07B, C 08B, G 09B, D 10B, A 11B, E 12B
-    """
     if not musical_key or not mode:
         return None
 
@@ -163,7 +159,7 @@ def fetch_epic_json() -> dict[str, Any]:
     response = requests.get(
         EPIC_SPARK_TRACKS_URL,
         headers={
-            "User-Agent": "FNFest-GUI5-Importer/0.1",
+            "User-Agent": "FNFest-GUI5-Batched-Importer/0.2",
             "Accept": "application/json",
         },
         timeout=30,
@@ -191,153 +187,53 @@ def extract_track_pages(data: dict[str, Any]) -> list[TrackPage]:
     return pages
 
 
-def upsert_one(
-    client: Client,
-    table: str,
-    row: dict[str, Any],
-    on_conflict: str,
-) -> dict[str, Any]:
-    response = (
-        client.table(table)
-        .upsert(row, on_conflict=on_conflict)
-        .execute()
-    )
+def load_supabase_client() -> Client:
+    load_dotenv()
 
-    if not response.data:
-        raise RuntimeError(f"Upsert into {table} returned no data.")
+    supabase_url = os.getenv("SUPABASE_URL")
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-    return response.data[0]
+    if not supabase_url:
+        raise RuntimeError("Missing SUPABASE_URL in environment.")
+
+    if not service_key:
+        raise RuntimeError("Missing SUPABASE_SERVICE_ROLE_KEY in environment.")
+
+    return create_client(supabase_url, service_key)
 
 
-def insert_rows(
+def insert_rows(client: Client, table: str, rows: list[dict[str, Any]], label: str) -> None:
+    if not rows:
+        print(f"  {label}: 0 rows")
+        return
+
+    inserted = 0
+
+    for chunk in chunked(rows):
+        client.table(table).insert(chunk).execute()
+        inserted += len(chunk)
+
+    print(f"  {label}: {inserted} rows")
+
+
+def upsert_rows(
     client: Client,
     table: str,
     rows: list[dict[str, Any]],
+    on_conflict: str,
+    label: str,
 ) -> None:
     if not rows:
+        print(f"  {label}: 0 rows")
         return
 
-    client.table(table).insert(rows).execute()
+    upserted = 0
 
+    for chunk in chunked(rows):
+        client.table(table).upsert(chunk, on_conflict=on_conflict).execute()
+        upserted += len(chunk)
 
-def delete_track_children(client: Client, track_id: int) -> None:
-    """
-    Clear per-track child tables before re-inserting current source values.
-    This keeps relationships accurate when Epic removes a tag/genre/asset/etc.
-    """
-    child_tables = [
-        "track_artists",
-        "track_genres",
-        "track_tags",
-        "track_assets",
-        "track_difficulties",
-        "track_jam_parts",
-        "track_audio_parts",
-        "track_audio_metadata",
-    ]
-
-    for table in child_tables:
-        client.table(table).delete().eq("track_id", track_id).execute()
-
-
-def normalize_artist_segments(artist_display: str | None) -> list[tuple[str, str]]:
-    """
-    Conservative artist parser.
-
-    Keeps tracks.artist_display as the official display string.
-    This parser only creates helpful search rows.
-
-    Examples:
-        "Billie Eilish" -> [("Billie Eilish", "primary")]
-        "mgk ft. WILLOW" -> [("mgk", "primary"), ("WILLOW", "featured")]
-        "Elton John & Britney Spears" -> both collaborator-ish
-    """
-    if not artist_display:
-        return []
-
-    text = artist_display.strip()
-    if not text:
-        return []
-
-    # Split common featured markers first.
-    featured_pattern = re.compile(r"\s+(?:ft\.?|feat\.?|featuring)\s+", re.IGNORECASE)
-    featured_parts = featured_pattern.split(text, maxsplit=1)
-
-    results: list[tuple[str, str]] = []
-
-    primary_text = featured_parts[0].strip()
-    featured_text = featured_parts[1].strip() if len(featured_parts) > 1 else None
-
-    primary_names = split_artist_group(primary_text)
-    featured_names = split_artist_group(featured_text) if featured_text else []
-
-    for name in primary_names:
-        results.append((name, "primary"))
-
-    for name in featured_names:
-        results.append((name, "featured"))
-
-    if not results:
-        results.append((text, "primary"))
-
-    # De-duplicate while preserving order.
-    seen: set[tuple[str, str]] = set()
-    deduped: list[tuple[str, str]] = []
-
-    for name, role in results:
-        key = (name.lower(), role)
-        if key not in seen:
-            seen.add(key)
-            deduped.append((name, role))
-
-    return deduped
-
-
-def split_artist_group(value: str | None) -> list[str]:
-    if not value:
-        return []
-
-    # Split on comma and ampersand when used as separators.
-    # Do not split on "The" or plus signs; keep this conservative.
-    parts = re.split(r"\s*,\s*|\s+&\s+", value)
-
-    return [part.strip() for part in parts if part.strip()]
-
-
-def upsert_artist(client: Client, name: str) -> int:
-    row = upsert_one(
-        client,
-        "artists",
-        {"name": name},
-        on_conflict="name",
-    )
-    return int(row["artist_id"])
-
-
-def upsert_genre(client: Client, genre_code: str) -> int:
-    row = upsert_one(
-        client,
-        "genres",
-        {
-            "genre_code": genre_code,
-            "genre_label": genre_code,
-        },
-        on_conflict="genre_code",
-    )
-    return int(row["genre_id"])
-
-
-def upsert_tag(client: Client, tag_code: str) -> int:
-    row = upsert_one(
-        client,
-        "tags",
-        {
-            "tag_code": tag_code,
-            "tag_label": tag_code,
-        },
-        on_conflict="tag_code",
-    )
-    return int(row["tag_id"])
+    print(f"  {label}: {upserted} rows")
 
 
 def create_import_batch(client: Client, data: dict[str, Any], track_count: int) -> int:
@@ -353,7 +249,7 @@ def create_import_batch(client: Client, data: dict[str, Any], track_count: int) 
                 "source_active_date": parse_iso_datetime(data.get("_activeDate")),
                 "source_last_modified": parse_iso_datetime(data.get("lastModified")),
                 "track_count": track_count,
-                "notes": "Imported by scripts/import_epic_tracks.py",
+                "notes": "Imported by batched scripts/import_epic_tracks.py",
             }
         )
         .execute()
@@ -365,220 +261,359 @@ def create_import_batch(client: Client, data: dict[str, Any], track_count: int) 
     return int(response.data[0]["import_batch_id"])
 
 
-def import_track(client: Client, batch_id: int, item: TrackPage) -> None:
-    page = item.page
-    track = item.track
+def clear_catalog_child_tables(client: Client) -> None:
+    """
+    Clears child catalog tables before reinserting current source relationships.
 
-    # 1. Raw preservation
-    raw_track_json = track
+    This avoids per-track delete calls and prevents duplicate relationship rows
+    on repeated imports.
+    """
+    tables_with_track_id = [
+        "track_artists",
+        "track_genres",
+        "track_tags",
+        "track_assets",
+        "track_difficulties",
+        "track_jam_parts",
+        "track_audio_parts",
+        "track_audio_metadata",
+    ]
 
-    client.table("raw_tracks").upsert(
-        {
-            "import_batch_id": batch_id,
-            "epic_slug": item.epic_slug,
-            "page_title": page.get("_title"),
-            "page_no_index": page.get("_noIndex"),
-            "page_active_date": parse_iso_datetime(page.get("_activeDate")),
-            "page_last_modified": parse_iso_datetime(page.get("lastModified")),
-            "page_locale": page.get("_locale"),
-            "page_template_name": page.get("_templateName"),
-            "raw_page_json": page,
-            "raw_track_json": raw_track_json,
-        },
-        on_conflict="import_batch_id,epic_slug",
-    ).execute()
+    print("Clearing catalog child tables...")
 
-    # 2. Main track row
-    musical_key = track.get("mk")
-    mode = track.get("mm")
+    for table in tables_with_track_id:
+        client.table(table).delete().gte("track_id", 0).execute()
+        print(f"  cleared {table}")
 
-    track_row = {
-        "epic_slug": item.epic_slug,
-        "song_slug": track.get("sn"),
-        "song_uuid": parse_uuidish(track.get("su")),
-        "sparks_song_id": track.get("ti"),
-        "title": track.get("tt") or item.epic_slug,
-        "artist_display": track.get("an"),
-        "album_title": track.get("ab"),
-        "release_year": track.get("ry"),
-        "duration_seconds": track.get("dn"),
-        "bpm": track.get("mt"),
-        "musical_key": musical_key,
-        "mode": mode,
-        "camelot_code": compute_camelot_code(musical_key, mode),
-        "rating_code": track.get("ar"),
-        "isrc": track.get("isrc"),
-        "jam_code": track.get("jc"),
-        "mmo": track.get("mmo"),
-        "ci": track.get("ci"),
-        "ag": track.get("ag"),
-        "sm": track.get("sm"),
-        "no_index": page.get("_noIndex"),
-        "active_date": parse_iso_datetime(page.get("_activeDate")),
-        "new_until": parse_iso_datetime(track.get("nu")),
-        "last_modified": parse_iso_datetime(page.get("lastModified")),
-        "locale": page.get("_locale"),
-        "template_name": page.get("_templateName"),
-        "last_seen_at": datetime.now(timezone.utc).isoformat(),
-        "last_import_batch_id": batch_id,
+
+def fetch_track_id_map(client: Client) -> dict[str, int]:
+    response = (
+        client.table("tracks")
+        .select("track_id, epic_slug")
+        .execute()
+    )
+
+    return {
+        row["epic_slug"]: int(row["track_id"])
+        for row in response.data or []
     }
 
-    saved_track = upsert_one(
-        client,
-        "tracks",
-        track_row,
-        on_conflict="epic_slug",
-    )
-    track_id = int(saved_track["track_id"])
 
-    # 3. Clear existing children for this track.
-    delete_track_children(client, track_id)
+def fetch_artist_id_map(client: Client) -> dict[str, int]:
+    response = client.table("artists").select("artist_id, name").execute()
 
-    # 4. Artists
-    artist_rows: list[dict[str, Any]] = []
-    artist_segments = normalize_artist_segments(track.get("an"))
+    return {
+        row["name"]: int(row["artist_id"])
+        for row in response.data or []
+    }
 
-    for index, (artist_name, role) in enumerate(artist_segments, start=1):
-        artist_id = upsert_artist(client, artist_name)
-        artist_rows.append(
+
+def fetch_genre_id_map(client: Client) -> dict[str, int]:
+    response = client.table("genres").select("genre_id, genre_code").execute()
+
+    return {
+        row["genre_code"]: int(row["genre_id"])
+        for row in response.data or []
+    }
+
+
+def fetch_tag_id_map(client: Client) -> dict[str, int]:
+    response = client.table("tags").select("tag_id, tag_code").execute()
+
+    return {
+        row["tag_code"]: int(row["tag_id"])
+        for row in response.data or []
+    }
+
+
+def split_artist_group(value: str | None) -> list[str]:
+    if not value:
+        return []
+
+    parts = re.split(r"\s*,\s*|\s+&\s+", value)
+    return [part.strip() for part in parts if part.strip()]
+
+
+def normalize_artist_segments(artist_display: str | None) -> list[tuple[str, str]]:
+    """
+    Conservative artist parser.
+
+    tracks.artist_display keeps Epic's exact string.
+    artists/track_artists are only for better search/filtering.
+    """
+    if not artist_display:
+        return []
+
+    text = artist_display.strip()
+    if not text:
+        return []
+
+    featured_pattern = re.compile(r"\s+(?:ft\.?|feat\.?|featuring)\s+", re.IGNORECASE)
+    featured_parts = featured_pattern.split(text, maxsplit=1)
+
+    primary_text = featured_parts[0].strip()
+    featured_text = featured_parts[1].strip() if len(featured_parts) > 1 else None
+
+    results: list[tuple[str, str]] = []
+
+    for name in split_artist_group(primary_text):
+        results.append((name, "primary"))
+
+    for name in split_artist_group(featured_text):
+        results.append((name, "featured"))
+
+    if not results:
+        results.append((text, "primary"))
+
+    seen: set[tuple[str, str]] = set()
+    deduped: list[tuple[str, str]] = []
+
+    for name, role in results:
+        key = (name.lower(), role)
+        if key not in seen:
+            seen.add(key)
+            deduped.append((name, role))
+
+    return deduped
+
+
+def build_raw_track_rows(batch_id: int, track_pages: list[TrackPage]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+
+    for item in track_pages:
+        page = item.page
+
+        rows.append(
             {
-                "track_id": track_id,
-                "artist_id": artist_id,
-                "artist_order": index,
-                "artist_role": role,
-                "source_text": artist_name,
+                "import_batch_id": batch_id,
+                "epic_slug": item.epic_slug,
+                "page_title": page.get("_title"),
+                "page_no_index": page.get("_noIndex"),
+                "page_active_date": parse_iso_datetime(page.get("_activeDate")),
+                "page_last_modified": parse_iso_datetime(page.get("lastModified")),
+                "page_locale": page.get("_locale"),
+                "page_template_name": page.get("_templateName"),
+                "raw_page_json": page,
+                "raw_track_json": item.track,
             }
         )
 
-    insert_rows(client, "track_artists", artist_rows)
+    return rows
 
-    # 5. Genres
-    genre_rows: list[dict[str, Any]] = []
-    for genre_code in track.get("ge") or []:
-        genre_id = upsert_genre(client, str(genre_code))
-        genre_rows.append({"track_id": track_id, "genre_id": genre_id})
 
-    insert_rows(client, "track_genres", genre_rows)
+def build_track_rows(batch_id: int, track_pages: list[TrackPage]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    seen_at = now_utc()
 
-    # 6. Tags
-    tag_rows: list[dict[str, Any]] = []
-    for tag_code in track.get("gt") or []:
-        tag_id = upsert_tag(client, str(tag_code))
-        tag_rows.append({"track_id": track_id, "tag_id": tag_id})
+    for item in track_pages:
+        page = item.page
+        track = item.track
 
-    insert_rows(client, "track_tags", tag_rows)
+        musical_key = track.get("mk")
+        mode = track.get("mm")
 
-    # 7. Assets
-    asset_rows: list[dict[str, Any]] = []
-    for source_field, asset_type in ASSET_FIELD_MAP.items():
-        url = track.get(source_field)
-        if isinstance(url, str) and is_probably_url(url):
-            asset_rows.append(
+        rows.append(
+            {
+                "epic_slug": item.epic_slug,
+                "song_slug": track.get("sn"),
+                "song_uuid": parse_uuidish(track.get("su")),
+                "sparks_song_id": track.get("ti"),
+                "title": track.get("tt") or item.epic_slug,
+                "artist_display": track.get("an"),
+                "album_title": track.get("ab"),
+                "release_year": track.get("ry"),
+                "duration_seconds": track.get("dn"),
+                "bpm": track.get("mt"),
+                "musical_key": musical_key,
+                "mode": mode,
+                "camelot_code": compute_camelot_code(musical_key, mode),
+                "rating_code": track.get("ar"),
+                "isrc": track.get("isrc"),
+                "jam_code": track.get("jc"),
+                "mmo": track.get("mmo"),
+                "ci": track.get("ci"),
+                "ag": track.get("ag"),
+                "sm": track.get("sm"),
+                "no_index": page.get("_noIndex"),
+                "active_date": parse_iso_datetime(page.get("_activeDate")),
+                "new_until": parse_iso_datetime(track.get("nu")),
+                "last_modified": parse_iso_datetime(page.get("lastModified")),
+                "locale": page.get("_locale"),
+                "template_name": page.get("_templateName"),
+                "last_seen_at": seen_at,
+                "last_import_batch_id": batch_id,
+            }
+        )
+
+    return rows
+
+
+def collect_lookup_values(track_pages: list[TrackPage]) -> tuple[set[str], set[str], set[str]]:
+    artist_names: set[str] = set()
+    genre_codes: set[str] = set()
+    tag_codes: set[str] = set()
+
+    for item in track_pages:
+        track = item.track
+
+        for artist_name, _role in normalize_artist_segments(track.get("an")):
+            artist_names.add(artist_name)
+
+        for genre_code in track.get("ge") or []:
+            genre_codes.add(str(genre_code))
+
+        for tag_code in track.get("gt") or []:
+            tag_codes.add(str(tag_code))
+
+    return artist_names, genre_codes, tag_codes
+
+
+def build_lookup_rows(values: set[str], code_field: str, label_field: str) -> list[dict[str, Any]]:
+    return [
+        {
+            code_field: value,
+            label_field: value,
+        }
+        for value in sorted(values)
+    ]
+
+
+def build_artist_rows(values: set[str]) -> list[dict[str, Any]]:
+    return [{"name": value} for value in sorted(values)]
+
+
+def build_child_rows(
+    track_pages: list[TrackPage],
+    track_id_map: dict[str, int],
+    artist_id_map: dict[str, int],
+    genre_id_map: dict[str, int],
+    tag_id_map: dict[str, int],
+) -> dict[str, list[dict[str, Any]]]:
+    rows: dict[str, list[dict[str, Any]]] = {
+        "track_artists": [],
+        "track_genres": [],
+        "track_tags": [],
+        "track_assets": [],
+        "track_difficulties": [],
+        "track_jam_parts": [],
+        "track_audio_metadata": [],
+        "track_audio_parts": [],
+    }
+
+    for item in track_pages:
+        track_id = track_id_map.get(item.epic_slug)
+        if track_id is None:
+            raise RuntimeError(f"Missing track_id for epic_slug={item.epic_slug}")
+
+        track = item.track
+
+        for index, (artist_name, role) in enumerate(normalize_artist_segments(track.get("an")), start=1):
+            artist_id = artist_id_map.get(artist_name)
+            if artist_id is None:
+                continue
+
+            rows["track_artists"].append(
                 {
                     "track_id": track_id,
-                    "asset_type": asset_type,
-                    "url": url,
+                    "artist_id": artist_id,
+                    "artist_order": index,
+                    "artist_role": role,
+                    "source_text": artist_name,
                 }
             )
 
-    insert_rows(client, "track_assets", asset_rows)
-
-    # 8. Difficulties / intensities
-    difficulty_rows: list[dict[str, Any]] = []
-    intensities = track.get("in")
-
-    if isinstance(intensities, dict):
-        for part_code, value in intensities.items():
-            if part_code in INTENSITY_SKIP_FIELDS:
-                continue
-
-            if isinstance(value, int):
-                difficulty_rows.append(
+        for genre_code in track.get("ge") or []:
+            genre_id = genre_id_map.get(str(genre_code))
+            if genre_id is not None:
+                rows["track_genres"].append(
                     {
                         "track_id": track_id,
-                        "part_code": part_code,
-                        "difficulty_value": value,
+                        "genre_id": genre_id,
                     }
                 )
 
-    insert_rows(client, "track_difficulties", difficulty_rows)
+        for tag_code in track.get("gt") or []:
+            tag_id = tag_id_map.get(str(tag_code))
+            if tag_id is not None:
+                rows["track_tags"].append(
+                    {
+                        "track_id": track_id,
+                        "tag_id": tag_id,
+                    }
+                )
 
-    # 9. Jam parts
-    jam_part_rows: list[dict[str, Any]] = []
-    for source_field, slot_name in JAM_PART_FIELD_MAP.items():
-        instrument_name = track.get(source_field)
+        for source_field, asset_type in ASSET_FIELD_MAP.items():
+            url = track.get(source_field)
+            if isinstance(url, str) and is_probably_url(url):
+                rows["track_assets"].append(
+                    {
+                        "track_id": track_id,
+                        "asset_type": asset_type,
+                        "url": url,
+                    }
+                )
 
-        if isinstance(instrument_name, str) and instrument_name.strip():
-            jam_part_rows.append(
+        intensities = track.get("in")
+        if isinstance(intensities, dict):
+            for part_code, value in intensities.items():
+                if part_code in INTENSITY_SKIP_FIELDS:
+                    continue
+
+                if isinstance(value, int):
+                    rows["track_difficulties"].append(
+                        {
+                            "track_id": track_id,
+                            "part_code": part_code,
+                            "difficulty_value": value,
+                        }
+                    )
+
+        for source_field, _slot_name in JAM_PART_FIELD_MAP.items():
+            instrument_name = track.get(source_field)
+            if isinstance(instrument_name, str) and instrument_name.strip():
+                rows["track_jam_parts"].append(
+                    {
+                        "track_id": track_id,
+                        "slot_code": source_field,
+                        "instrument_name": instrument_name,
+                    }
+                )
+
+        qi = parse_qi(track.get("qi"))
+        if qi:
+            preview = qi.get("preview") if isinstance(qi.get("preview"), dict) else {}
+
+            rows["track_audio_metadata"].append(
                 {
                     "track_id": track_id,
-                    "slot_code": source_field,
-                    "instrument_name": instrument_name,
+                    "qi_sid": parse_uuidish(qi.get("sid")),
+                    "qi_pid": parse_uuidish(qi.get("pid")),
+                    "stereo_id": parse_uuidish(qi.get("stereoId")),
+                    "instrumental_id": parse_uuidish(qi.get("instrumentalId")),
+                    "qi_title": qi.get("title"),
+                    "preview_start_time": preview.get("starttime"),
+                    "raw_qi": qi,
                 }
             )
 
-    insert_rows(client, "track_jam_parts", jam_part_rows)
+            for audio_part in qi.get("tracks") or []:
+                if not isinstance(audio_part, dict):
+                    continue
 
-    # 10. QI/audio metadata
-    qi = parse_qi(track.get("qi"))
+                part_code = audio_part.get("part")
+                if not isinstance(part_code, str) or not part_code.strip():
+                    continue
 
-    if qi:
-        preview = qi.get("preview") if isinstance(qi.get("preview"), dict) else {}
-        preview_start_time = preview.get("starttime")
+                rows["track_audio_parts"].append(
+                    {
+                        "track_id": track_id,
+                        "audio_part_code": part_code,
+                        "channels": audio_part.get("channels") or [],
+                        "volumes": audio_part.get("vols") or [],
+                    }
+                )
 
-        client.table("track_audio_metadata").insert(
-            {
-                "track_id": track_id,
-                "qi_sid": parse_uuidish(qi.get("sid")),
-                "qi_pid": parse_uuidish(qi.get("pid")),
-                "stereo_id": parse_uuidish(qi.get("stereoId")),
-                "instrumental_id": parse_uuidish(qi.get("instrumentalId")),
-                "qi_title": qi.get("title"),
-                "preview_start_time": preview_start_time,
-                "raw_qi": qi,
-            }
-        ).execute()
-
-        audio_part_rows: list[dict[str, Any]] = []
-
-        for audio_part in qi.get("tracks") or []:
-            if not isinstance(audio_part, dict):
-                continue
-
-            part_code = audio_part.get("part")
-            if not isinstance(part_code, str) or not part_code.strip():
-                continue
-
-            audio_part_rows.append(
-                {
-                    "track_id": track_id,
-                    "audio_part_code": part_code,
-                    "channels": audio_part.get("channels") or [],
-                    "volumes": audio_part.get("vols") or [],
-                }
-            )
-
-        insert_rows(client, "track_audio_parts", audio_part_rows)
-
-
-def is_probably_url(value: str) -> bool:
-    parsed = urlparse(value)
-    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
-
-
-def load_supabase_client() -> Client:
-    load_dotenv()
-
-    supabase_url = os.getenv("SUPABASE_URL")
-    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-
-    if not supabase_url:
-        raise RuntimeError("Missing SUPABASE_URL in environment.")
-
-    if not service_key:
-        raise RuntimeError("Missing SUPABASE_SERVICE_ROLE_KEY in environment.")
-
-    return create_client(supabase_url, service_key)
+    return rows
 
 
 def main() -> int:
@@ -595,18 +630,52 @@ def main() -> int:
     batch_id = create_import_batch(client, data, len(track_pages))
     print(f"Import batch ID: {batch_id}")
 
-    imported = 0
+    print("Building rows in memory...")
+    raw_track_rows = build_raw_track_rows(batch_id, track_pages)
+    track_rows = build_track_rows(batch_id, track_pages)
+    artist_names, genre_codes, tag_codes = collect_lookup_values(track_pages)
 
-    for item in track_pages:
-        import_track(client, batch_id, item)
-        imported += 1
+    artist_rows = build_artist_rows(artist_names)
+    genre_rows = build_lookup_rows(genre_codes, "genre_code", "genre_label")
+    tag_rows = build_lookup_rows(tag_codes, "tag_code", "tag_label")
 
-        if imported % 25 == 0:
-            print(f"Imported {imported}/{len(track_pages)} tracks...")
+    print("Clearing existing child catalog rows...")
+    clear_catalog_child_tables(client)
 
-    print(f"Imported {imported}/{len(track_pages)} tracks.")
-    print("Done.")
+    print("Writing raw/current catalog rows...")
+    insert_rows(client, "raw_tracks", raw_track_rows, "raw_tracks")
+    upsert_rows(client, "tracks", track_rows, "epic_slug", "tracks")
+    upsert_rows(client, "artists", artist_rows, "name", "artists")
+    upsert_rows(client, "genres", genre_rows, "genre_code", "genres")
+    upsert_rows(client, "tags", tag_rows, "tag_code", "tags")
 
+    print("Fetching ID maps...")
+    track_id_map = fetch_track_id_map(client)
+    artist_id_map = fetch_artist_id_map(client)
+    genre_id_map = fetch_genre_id_map(client)
+    tag_id_map = fetch_tag_id_map(client)
+
+    print("Building child relationship rows...")
+    child_rows = build_child_rows(
+        track_pages=track_pages,
+        track_id_map=track_id_map,
+        artist_id_map=artist_id_map,
+        genre_id_map=genre_id_map,
+        tag_id_map=tag_id_map,
+    )
+
+    print("Writing child relationship rows...")
+    insert_rows(client, "track_artists", child_rows["track_artists"], "track_artists")
+    insert_rows(client, "track_genres", child_rows["track_genres"], "track_genres")
+    insert_rows(client, "track_tags", child_rows["track_tags"], "track_tags")
+    insert_rows(client, "track_assets", child_rows["track_assets"], "track_assets")
+    insert_rows(client, "track_difficulties", child_rows["track_difficulties"], "track_difficulties")
+    insert_rows(client, "track_jam_parts", child_rows["track_jam_parts"], "track_jam_parts")
+    insert_rows(client, "track_audio_metadata", child_rows["track_audio_metadata"], "track_audio_metadata")
+    insert_rows(client, "track_audio_parts", child_rows["track_audio_parts"], "track_audio_parts")
+
+    print("Import complete.")
+    print(f"Tracks processed: {len(track_pages)}")
     return 0
 
 
