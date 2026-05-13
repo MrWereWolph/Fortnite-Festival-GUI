@@ -98,7 +98,7 @@ create table if not exists tracks (
     jam_code text,
 
     -- Misc Epic fields
-    mmo integer,
+    mmo numeric,
     ci numeric,
     ag text,
     sm text,
