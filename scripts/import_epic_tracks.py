@@ -261,6 +261,78 @@ def create_import_batch(client: Client, data: dict[str, Any], track_count: int) 
     return int(response.data[0]["import_batch_id"])
 
 
+def create_sync_run(client: Client, source_url: str) -> int:
+    response = (
+        client.table("sync_runs")
+        .insert(
+            {
+                "source_name": "epic_spark_tracks",
+                "source_url": source_url,
+                "status": "running",
+                "notes": "Started by local Python importer.",
+            }
+        )
+        .execute()
+    )
+
+    if not response.data:
+        raise RuntimeError("Failed to create sync run.")
+
+    return int(response.data[0]["sync_run_id"])
+
+
+def finish_sync_run(
+    client: Client,
+    sync_run_id: int,
+    status: str,
+    source_last_modified: str | None = None,
+    source_track_count: int | None = None,
+    import_batch_id: int | None = None,
+    error_message: str | None = None,
+    notes: str | None = None,
+) -> None:
+    client.table("sync_runs").update(
+        {
+            "finished_at": now_utc(),
+            "status": status,
+            "source_last_modified": source_last_modified,
+            "source_track_count": source_track_count,
+            "import_batch_id": import_batch_id,
+            "error_message": error_message,
+            "notes": notes,
+        }
+    ).eq("sync_run_id", sync_run_id).execute()
+
+
+def get_latest_successful_import(client: Client) -> dict[str, Any] | None:
+    response = (
+        client.table("import_batches")
+        .select("import_batch_id, source_last_modified, track_count, imported_at")
+        .order("import_batch_id", desc=True)
+        .limit(1)
+        .execute()
+    )
+
+    if not response.data:
+        return None
+
+    return response.data[0]
+
+
+def should_skip_import(
+    latest_import: dict[str, Any] | None,
+    source_last_modified: str | None,
+    track_count: int,
+) -> bool:
+    if latest_import is None:
+        return False
+
+    latest_modified = latest_import.get("source_last_modified")
+    latest_count = latest_import.get("track_count")
+
+    return latest_modified == source_last_modified and latest_count == track_count
+
+
 def clear_catalog_child_tables(client: Client) -> None:
     """
     Clears child catalog tables before reinserting current source relationships.
@@ -620,64 +692,117 @@ def main() -> int:
     print("Loading Supabase client...")
     client = load_supabase_client()
 
-    print("Fetching Epic spark-tracks JSON...")
-    data = fetch_epic_json()
+    sync_run_id: int | None = None
 
-    track_pages = extract_track_pages(data)
-    print(f"Found {len(track_pages)} track pages.")
+    try:
+        print("Creating sync run...")
+        sync_run_id = create_sync_run(client, EPIC_SPARK_TRACKS_URL)
+        print(f"Sync run ID: {sync_run_id}")
 
-    print("Creating import batch...")
-    batch_id = create_import_batch(client, data, len(track_pages))
-    print(f"Import batch ID: {batch_id}")
+        print("Fetching Epic spark-tracks JSON...")
+        data = fetch_epic_json()
 
-    print("Building rows in memory...")
-    raw_track_rows = build_raw_track_rows(batch_id, track_pages)
-    track_rows = build_track_rows(batch_id, track_pages)
-    artist_names, genre_codes, tag_codes = collect_lookup_values(track_pages)
+        track_pages = extract_track_pages(data)
+        track_count = len(track_pages)
+        source_last_modified = parse_iso_datetime(data.get("lastModified"))
 
-    artist_rows = build_artist_rows(artist_names)
-    genre_rows = build_lookup_rows(genre_codes, "genre_code", "genre_label")
-    tag_rows = build_lookup_rows(tag_codes, "tag_code", "tag_label")
+        print(f"Found {track_count} track pages.")
+        print(f"Source lastModified: {source_last_modified}")
 
-    print("Clearing existing child catalog rows...")
-    clear_catalog_child_tables(client)
+        latest_import = get_latest_successful_import(client)
 
-    print("Writing raw/current catalog rows...")
-    insert_rows(client, "raw_tracks", raw_track_rows, "raw_tracks")
-    upsert_rows(client, "tracks", track_rows, "epic_slug", "tracks")
-    upsert_rows(client, "artists", artist_rows, "name", "artists")
-    upsert_rows(client, "genres", genre_rows, "genre_code", "genres")
-    upsert_rows(client, "tags", tag_rows, "tag_code", "tags")
+        if should_skip_import(latest_import, source_last_modified, track_count):
+            print("No source changes detected. Skipping import.")
 
-    print("Fetching ID maps...")
-    track_id_map = fetch_track_id_map(client)
-    artist_id_map = fetch_artist_id_map(client)
-    genre_id_map = fetch_genre_id_map(client)
-    tag_id_map = fetch_tag_id_map(client)
+            finish_sync_run(
+                client=client,
+                sync_run_id=sync_run_id,
+                status="skipped",
+                source_last_modified=source_last_modified,
+                source_track_count=track_count,
+                import_batch_id=latest_import.get("import_batch_id") if latest_import else None,
+                notes="Skipped because source lastModified and track count matched latest import.",
+            )
 
-    print("Building child relationship rows...")
-    child_rows = build_child_rows(
-        track_pages=track_pages,
-        track_id_map=track_id_map,
-        artist_id_map=artist_id_map,
-        genre_id_map=genre_id_map,
-        tag_id_map=tag_id_map,
-    )
+            return 0
 
-    print("Writing child relationship rows...")
-    insert_rows(client, "track_artists", child_rows["track_artists"], "track_artists")
-    insert_rows(client, "track_genres", child_rows["track_genres"], "track_genres")
-    insert_rows(client, "track_tags", child_rows["track_tags"], "track_tags")
-    insert_rows(client, "track_assets", child_rows["track_assets"], "track_assets")
-    insert_rows(client, "track_difficulties", child_rows["track_difficulties"], "track_difficulties")
-    insert_rows(client, "track_jam_parts", child_rows["track_jam_parts"], "track_jam_parts")
-    insert_rows(client, "track_audio_metadata", child_rows["track_audio_metadata"], "track_audio_metadata")
-    insert_rows(client, "track_audio_parts", child_rows["track_audio_parts"], "track_audio_parts")
+        print("Changes detected or no previous import exists.")
+        print("Creating import batch...")
+        batch_id = create_import_batch(client, data, track_count)
+        print(f"Import batch ID: {batch_id}")
 
-    print("Import complete.")
-    print(f"Tracks processed: {len(track_pages)}")
-    return 0
+        print("Building rows in memory...")
+        raw_track_rows = build_raw_track_rows(batch_id, track_pages)
+        track_rows = build_track_rows(batch_id, track_pages)
+        artist_names, genre_codes, tag_codes = collect_lookup_values(track_pages)
 
+        artist_rows = build_artist_rows(artist_names)
+        genre_rows = build_lookup_rows(genre_codes, "genre_code", "genre_label")
+        tag_rows = build_lookup_rows(tag_codes, "tag_code", "tag_label")
+
+        print("Clearing existing child catalog rows...")
+        clear_catalog_child_tables(client)
+
+        print("Writing raw/current catalog rows...")
+        insert_rows(client, "raw_tracks", raw_track_rows, "raw_tracks")
+        upsert_rows(client, "tracks", track_rows, "epic_slug", "tracks")
+        upsert_rows(client, "artists", artist_rows, "name", "artists")
+        upsert_rows(client, "genres", genre_rows, "genre_code", "genres")
+        upsert_rows(client, "tags", tag_rows, "tag_code", "tags")
+
+        print("Fetching ID maps...")
+        track_id_map = fetch_track_id_map(client)
+        artist_id_map = fetch_artist_id_map(client)
+        genre_id_map = fetch_genre_id_map(client)
+        tag_id_map = fetch_tag_id_map(client)
+
+        print("Building child relationship rows...")
+        child_rows = build_child_rows(
+            track_pages=track_pages,
+            track_id_map=track_id_map,
+            artist_id_map=artist_id_map,
+            genre_id_map=genre_id_map,
+            tag_id_map=tag_id_map,
+        )
+
+        print("Writing child relationship rows...")
+        insert_rows(client, "track_artists", child_rows["track_artists"], "track_artists")
+        insert_rows(client, "track_genres", child_rows["track_genres"], "track_genres")
+        insert_rows(client, "track_tags", child_rows["track_tags"], "track_tags")
+        insert_rows(client, "track_assets", child_rows["track_assets"], "track_assets")
+        insert_rows(client, "track_difficulties", child_rows["track_difficulties"], "track_difficulties")
+        insert_rows(client, "track_jam_parts", child_rows["track_jam_parts"], "track_jam_parts")
+        insert_rows(client, "track_audio_metadata", child_rows["track_audio_metadata"], "track_audio_metadata")
+        insert_rows(client, "track_audio_parts", child_rows["track_audio_parts"], "track_audio_parts")
+
+        finish_sync_run(
+            client=client,
+            sync_run_id=sync_run_id,
+            status="success",
+            source_last_modified=source_last_modified,
+            source_track_count=track_count,
+            import_batch_id=batch_id,
+            notes="Import completed successfully.",
+        )
+
+        print("Import complete.")
+        print(f"Tracks processed: {track_count}")
+        return 0
+
+    except Exception as exc:
+        if sync_run_id is not None:
+            try:
+                finish_sync_run(
+                    client=client,
+                    sync_run_id=sync_run_id,
+                    status="failed",
+                    error_message=str(exc),
+                    notes="Import failed.",
+                )
+            except Exception:
+                pass
+
+        raise
 
 if __name__ == "__main__":
     try:
