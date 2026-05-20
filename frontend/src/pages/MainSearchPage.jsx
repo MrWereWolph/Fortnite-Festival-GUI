@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { loadOwnedTrackIds, toggleOwnedTrackId } from "../lib/ownedTracks";
-import TrackCard from "../components/TrackCard";
+import MainTrackCard from "../components/MainTrackCard";
 
 const MAIN_RESULT_LIMIT = 96;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -151,6 +151,7 @@ export default function MainSearchPage() {
           <option value={4}>4+</option>
           <option value={5}>5+</option>
           <option value={6}>6+</option>
+          <option value={7}>7+</option>
         </select>
 
         <select
@@ -179,7 +180,7 @@ export default function MainSearchPage() {
 
       <section className="track-grid">
         {visibleTracks.map((track) => (
-          <TrackCard
+          <MainTrackCard
             key={track.track_id}
             track={track}
             owned={ownedIds.has(Number(track.track_id))}

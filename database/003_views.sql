@@ -97,13 +97,17 @@ group by
 -- ============================================================
 -- 2. Flattened Difficulty View
 -- ============================================================
--- Makes Main Stage/pro difficulty data easy for frontend cards.
+-- Normalizes Epic difficulty values for GUI use.
 --
--- Epic's "in" object gives codes like:
---   bd, vl, gr, ba, ds, pg, pb, pd
---
--- We store those normalized in track_difficulties, but this view
--- flattens them for easy display/export.
+-- Meaning:
+--   99 = no chart exists for that instrument, convert to NULL
+--   0  = chart exists, display/filter as difficulty 1
+--   1  = display/filter as difficulty 2
+--   2  = display/filter as difficulty 3
+--   3  = display/filter as difficulty 4
+--   4  = display/filter as difficulty 5
+--   5  = display/filter as difficulty 6
+--   6  = display/filter as difficulty 7
 -- ============================================================
 
 create or replace view v_track_difficulties_flat as
@@ -113,15 +117,61 @@ select
     t.title,
     t.artist_display,
 
-    max(case when td.part_code = 'bd' then td.difficulty_value end) as band,
-    max(case when td.part_code = 'vl' then td.difficulty_value end) as vocals,
-    max(case when td.part_code = 'gr' then td.difficulty_value end) as guitar,
-    max(case when td.part_code = 'ba' then td.difficulty_value end) as bass,
-    max(case when td.part_code = 'ds' then td.difficulty_value end) as drums,
+    max(
+        case
+            when td.part_code = 'bd' and td.difficulty_value = 99 then null
+            when td.part_code = 'bd' then td.difficulty_value + 1
+        end
+    ) as band,
 
-    max(case when td.part_code = 'pg' then td.difficulty_value end) as pro_guitar,
-    max(case when td.part_code = 'pb' then td.difficulty_value end) as pro_bass,
-    max(case when td.part_code = 'pd' then td.difficulty_value end) as pro_drums
+    max(
+        case
+            when td.part_code = 'vl' and td.difficulty_value = 99 then null
+            when td.part_code = 'vl' then td.difficulty_value + 1
+        end
+    ) as vocals,
+
+    max(
+        case
+            when td.part_code = 'gr' and td.difficulty_value = 99 then null
+            when td.part_code = 'gr' then td.difficulty_value + 1
+        end
+    ) as guitar,
+
+    max(
+        case
+            when td.part_code = 'ba' and td.difficulty_value = 99 then null
+            when td.part_code = 'ba' then td.difficulty_value + 1
+        end
+    ) as bass,
+
+    max(
+        case
+            when td.part_code = 'ds' and td.difficulty_value = 99 then null
+            when td.part_code = 'ds' then td.difficulty_value + 1
+        end
+    ) as drums,
+
+    max(
+        case
+            when td.part_code = 'pg' and td.difficulty_value = 99 then null
+            when td.part_code = 'pg' then td.difficulty_value + 1
+        end
+    ) as pro_guitar,
+
+    max(
+        case
+            when td.part_code = 'pb' and td.difficulty_value = 99 then null
+            when td.part_code = 'pb' then td.difficulty_value + 1
+        end
+    ) as pro_bass,
+
+    max(
+        case
+            when td.part_code = 'pd' and td.difficulty_value = 99 then null
+            when td.part_code = 'pd' then td.difficulty_value + 1
+        end
+    ) as pro_drums
 
 from tracks t
 left join track_difficulties td
