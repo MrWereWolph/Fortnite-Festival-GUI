@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { loadOwnedTrackIds, toggleOwnedTrackId } from "../lib/ownedTracks";
-import TrackCard from "../components/TrackCard";
+import JamTrackCard from "../components/JamTrackCard";
 
 const JAM_RESULT_LIMIT = 48;
 const SEARCH_DEBOUNCE_MS = 250;
@@ -111,7 +111,7 @@ export default function JamSearchPage() {
 
       <section className="track-grid">
         {visibleTracks.map((track) => (
-          <TrackCard
+          <JamTrackCard
             key={track.track_id}
             track={track}
             owned={ownedIds.has(Number(track.track_id))}

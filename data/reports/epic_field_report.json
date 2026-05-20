@@ -1,0 +1,486 @@
+{
+  "duplicate_isrcs": {
+    "QM7282022872": [
+      "dynamite",
+      "butter"
+    ],
+    "USAT21703413": [
+      "thewawylifegoes",
+      "bandit"
+    ],
+    "USUM72400101": [
+      "theboyismine",
+      "yesand"
+    ],
+    "USUM72404979": [
+      "espresso",
+      "feather"
+    ],
+    "USUYG1293813": [
+      "roses",
+      "dropitlikeitshot"
+    ]
+  },
+  "duplicate_jam_codes": {},
+  "duplicate_song_uuids": {},
+  "generated_at": "2026-05-13T07:50:15.644246+00:00",
+  "genre_counts": {
+    "Country": 1,
+    "DanceElectronic": 6,
+    "Pop": 18,
+    "RapHipHop": 5,
+    "RnB": 6,
+    "Rock": 17
+  },
+  "intensity_examples": {
+    "_type": [
+      "SparkTrackIntensities"
+    ],
+    "ba": [
+      "1",
+      "3",
+      "2",
+      "0",
+      "6"
+    ],
+    "bd": [
+      "4",
+      "99",
+      "3",
+      "2",
+      "0"
+    ],
+    "ds": [
+      "2",
+      "4",
+      "1",
+      "3",
+      "5"
+    ],
+    "gr": [
+      "4",
+      "3",
+      "1",
+      "2",
+      "5"
+    ],
+    "pb": [
+      "2",
+      "3",
+      "1",
+      "0",
+      "5"
+    ],
+    "pd": [
+      "1",
+      "3",
+      "2",
+      "4",
+      "5"
+    ],
+    "pg": [
+      "4",
+      "3",
+      "0",
+      "1",
+      "2"
+    ],
+    "vl": [
+      "4",
+      "3",
+      "2",
+      "1",
+      "6"
+    ]
+  },
+  "intensity_field_counts": {
+    "_type": 656,
+    "ba": 656,
+    "bd": 656,
+    "ds": 656,
+    "gr": 654,
+    "pb": 656,
+    "pd": 656,
+    "pg": 654,
+    "vl": 656
+  },
+  "key_counts": {
+    "A": 73,
+    "Ab": 45,
+    "B": 39,
+    "Bb": 37,
+    "C": 64,
+    "D": 77,
+    "Db": 43,
+    "E": 81,
+    "Eb": 41,
+    "F": 54,
+    "G": 52,
+    "Gb": 50
+  },
+  "malformed_qi_count": 0,
+  "missing_qi_count": 0,
+  "mode_counts": {
+    "Major": 256,
+    "Minor": 400
+  },
+  "page_field_counts": {
+    "_activeDate": 656,
+    "_locale": 656,
+    "_noIndex": 656,
+    "_templateName": 656,
+    "_title": 656,
+    "lastModified": 656
+  },
+  "page_field_examples": {
+    "_activeDate": [
+      "2023-10-09T18:12:20.689Z",
+      "2024-02-22T09:00:00.000Z",
+      "2023-10-10T15:23:58.784Z",
+      "2023-10-24T13:43:23.646Z",
+      "2025-03-11T08:00:00.000Z"
+    ],
+    "_locale": [
+      "en-US"
+    ],
+    "_noIndex": [
+      "false"
+    ],
+    "_templateName": [
+      "track"
+    ],
+    "_title": [
+      "butterbarnhoedown",
+      "ogfutureremix",
+      "switchup",
+      "showthemwhoweare",
+      "takemehigher"
+    ],
+    "lastModified": [
+      "2026-02-27T15:58:57.531Z",
+      "2026-03-13T17:35:37.901Z",
+      "2026-03-13T17:44:50.142Z",
+      "2025-12-12T18:07:52.341Z",
+      "2025-11-04T16:48:13.141Z"
+    ]
+  },
+  "qi_field_counts": {
+    "instrumentalId": 650,
+    "pid": 656,
+    "preview": 656,
+    "sid": 656,
+    "stereoId": 656,
+    "title": 656,
+    "tracks": 656
+  },
+  "qi_field_examples": {
+    "instrumentalId": [
+      "f1f1866a-f919-4351-aa42-77994c1bdaab",
+      "9329e91a-5146-40a2-8594-4a6fb7612c8e",
+      "74ef71da-9575-465f-b47c-39dba5233711",
+      "0a66c4bc-c8ed-4596-847d-efaa8b083612",
+      "c766a706-bb25-4a9a-b49d-e9111653a3fc"
+    ],
+    "pid": [
+      "82172ce9-30a4-4f11-a864-5c79054275aa",
+      "d98eeaac-2bfa-4bf4-8a59-bdc95469c693",
+      "74819302-b2a0-49ff-b315-207fb33dfbb6",
+      "3cd83fde-9ba7-4eff-8801-e56df58c2065",
+      "495b2dcf-ddfd-4389-aa63-3b646a7f6abc"
+    ],
+    "preview": [
+      "{\"starttime\": 44.0816}",
+      "{\"starttime\": 118.4}",
+      "{\"starttime\": 18.5}",
+      "{\"starttime\": 99.7674}",
+      "{\"starttime\": 49.2307}"
+    ],
+    "sid": [
+      "814e337e-545b-4fc0-9d41-18c89f7d2609",
+      "fdcfbd06-5e9c-480a-acba-14e361691736",
+      "603c6f1c-5b2b-4d3f-9f1b-001399ce9258",
+      "bbf51848-766c-4a29-8f7d-6478152a3369",
+      "83065524-b706-4aac-902a-5e122006dbbc"
+    ],
+    "stereoId": [
+      "98dffdd6-1f33-41b6-87c6-83c6180df76c",
+      "9124b0b1-2bc4-4013-b190-a9bdb3fcc88e",
+      "e32a943b-4df5-4cd0-86aa-187d8d2cc149",
+      "a8aab229-18ff-4a9d-bb3f-2db565555a06",
+      "51a37491-a2be-42d9-b8b8-9df562fcb414"
+    ],
+    "title": [
+      "butterbarnhoedown",
+      "ogfutureremix",
+      "switchup",
+      "showthemwhoweare",
+      "takemehigher"
+    ],
+    "tracks": [
+      "[{\"channels\": [\"FL\", \"FR\"], \"part\": \"ds\", \"vols\": [4, 4]}, {\"channels\": [\"FL\", \"FR\"], \"part\": \"bs\", \"vols\": [4, 4]}, ...",
+      "[{\"channels\": [\"FL\", \"FR\"], \"part\": \"ds\", \"vols\": [0, 0]}, {\"channels\": [\"FL\", \"FR\"], \"part\": \"bs\", \"vols\": [0, 0]}, ...",
+      "[{\"channels\": [\"FL\", \"FR\"], \"part\": \"ds\", \"vols\": [4, 4]}, {\"channels\": [\"FL\", \"FR\"], \"part\": \"bs\", \"vols\": [4, -1]},...",
+      "[{\"channels\": [\"FL\", \"FR\"], \"part\": \"ds\", \"vols\": [4, 4]}, {\"channels\": [\"FL\", \"FR\"], \"part\": \"bs\", \"vols\": [0, 0]}, ..."
+    ]
+  },
+  "qi_track_part_counts": {
+    "bs": 656,
+    "ds": 656,
+    "fs": 656,
+    "gs": 656,
+    "vs": 656
+  },
+  "rating_counts": {
+    "E": 441,
+    "T": 215
+  },
+  "root_metadata": {
+    "_activeDate": "2023-10-06T04:15:09.015Z",
+    "_locale": "en-US",
+    "_noIndex": false,
+    "_templateName": "blank",
+    "_title": "spark-tracks",
+    "lastModified": "2026-05-12T17:39:03.259Z"
+  },
+  "source_url": "https://fortnitecontent-website-prod07.ol.epicgames.com/content/api/pages/fortnite-game/spark-tracks",
+  "tag_counts": {
+    "EpicOwned": 8,
+    "ForceCMSAlbumArt": 3,
+    "Jam-LoopIsUnpitched-Beat": 278,
+    "Licensed": 1,
+    "Sparks-Song-ForceCMSAlbumArt": 2
+  },
+  "track_count": 656,
+  "track_field_counts": {
+    "_type": 656,
+    "ab": 58,
+    "ag": 8,
+    "an": 656,
+    "ar": 656,
+    "au": 656,
+    "ci": 1,
+    "dn": 656,
+    "ge": 53,
+    "gt": 288,
+    "in": 656,
+    "isrc": 522,
+    "jc": 656,
+    "ld": 615,
+    "mk": 656,
+    "mm": 656,
+    "mmo": 152,
+    "mt": 656,
+    "mu": 656,
+    "nu": 594,
+    "qi": 656,
+    "ry": 656,
+    "sib": 656,
+    "sid": 656,
+    "sig": 656,
+    "siv": 656,
+    "sm": 4,
+    "sn": 656,
+    "su": 656,
+    "tb": 10,
+    "ti": 656,
+    "tt": 656
+  },
+  "track_field_examples": {
+    "_type": [
+      "SparkTrack"
+    ],
+    "ab": [
+      "Fortnite",
+      "When We All Fall Asleep, Where Do We Go?",
+      "The Fame Monster",
+      "After Hours",
+      "Weezer (The Blue Album)"
+    ],
+    "ag": [
+      "Rock",
+      "Pop",
+      "RapHipHop"
+    ],
+    "an": [
+      "Epic Games",
+      "Billie Eilish",
+      "Lady Gaga",
+      "The Weeknd",
+      "Weezer"
+    ],
+    "ar": [
+      "E",
+      "T"
+    ],
+    "au": [
+      "https://cdn2.unrealengine.com/8trfqm9nofp8xeoj-512x512-4d008e153456.jpg",
+      "https://cdn2.unrealengine.com/gkorhaajfhipqtmv-512x512-ec70a3de1b54.jpg",
+      "https://cdn2.unrealengine.com/kdoxeyxx2ke0ky1m-512x512-597ff171a6ef.jpg",
+      "https://cdn2.unrealengine.com/egonfini0m8fhg1d-512x512-437df0c224f1.jpg",
+      "https://cdn2.unrealengine.com/t5uuxqhudwkgz7qv-512x512-506845b63fd3.jpg"
+    ],
+    "ci": [
+      "4.106"
+    ],
+    "dn": [
+      "157",
+      "161",
+      "179",
+      "191",
+      "193"
+    ],
+    "ge": [
+      "[\"Country\"]",
+      "[\"DanceElectronic\"]",
+      "[\"Rock\"]",
+      "[\"Pop\"]",
+      "[\"RnB\"]"
+    ],
+    "gt": [
+      "[\"Jam-LoopIsUnpitched-Beat\"]",
+      "[\"Jam-LoopIsUnpitched-Beat\", \"Sparks-Song-ForceCMSAlbumArt\"]",
+      "[\"Jam-LoopIsUnpitched-Beat\", \"ForceCMSAlbumArt\"]",
+      "[\"Jam-LoopIsUnpitched-Beat\", \"EpicOwned\"]",
+      "[\"EpicOwned\"]"
+    ],
+    "in": [
+      "{\"_type\": \"SparkTrackIntensities\", \"ba\": 1, \"bd\": 4, \"ds\": 2, \"gr\": 4, \"pb\": 2, \"pd\": 1, \"pg\": 4, \"vl\": 4}",
+      "{\"_type\": \"SparkTrackIntensities\", \"ba\": 3, \"bd\": 99, \"ds\": 4, \"gr\": 4, \"pb\": 3, \"pd\": 3, \"pg\": 4, \"vl\": 3}",
+      "{\"_type\": \"SparkTrackIntensities\", \"ba\": 1, \"bd\": 99, \"ds\": 2, \"gr\": 3, \"pb\": 1, \"pd\": 2, \"pg\": 3, \"vl\": 2}",
+      "{\"_type\": \"SparkTrackIntensities\", \"ba\": 2, \"bd\": 3, \"ds\": 4, \"pb\": 2, \"pd\": 4, \"vl\": 4}",
+      "{\"_type\": \"SparkTrackIntensities\", \"ba\": 1, \"bd\": 3, \"ds\": 4, \"gr\": 3, \"pb\": 1, \"pd\": 3, \"pg\": 3, \"vl\": 3}"
+    ],
+    "isrc": [
+      "USUM71900764",
+      "USUM70903859",
+      "USUG11904206",
+      "USGF19562907",
+      "USUM71514636"
+    ],
+    "jc": [
+      "2966-7543-4422",
+      "1940-0508-2151",
+      "0986-0411-9139",
+      "9303-4158-1271",
+      "0842-5813-0008"
+    ],
+    "ld": [
+      "https://cdn2.unrealengine.com/butterbarnhoedown-dea9cb878493.lad",
+      "https://cdn2.unrealengine.com/showthemwhoweare-7ce656ca8012.lad",
+      "https://cdn2.unrealengine.com/takemehigher-ae8a4d0e2324.lad",
+      "https://cdn2.unrealengine.com/braceforchaos-af4036f6579e.lad",
+      "https://cdn2.unrealengine.com/runit-09561d6d8688.lad"
+    ],
+    "mk": [
+      "D",
+      "E",
+      "G",
+      "A",
+      "F"
+    ],
+    "mm": [
+      "Major",
+      "Minor"
+    ],
+    "mmo": [
+      "93",
+      "52",
+      "132",
+      "50",
+      "92"
+    ],
+    "mt": [
+      "98",
+      "150",
+      "130",
+      "86",
+      "156"
+    ],
+    "mu": [
+      "https://cdn2.unrealengine.com/y3iotu5bothnse3s-71d4f25bc425.dat",
+      "https://cdn2.unrealengine.com/k1zislnjlhbze8tt-67837fadb2be.dat",
+      "https://cdn2.unrealengine.com/qvttttuppst0nn0s-90e305f9e300.dat",
+      "https://cdn2.unrealengine.com/kwzpwaxumtk1ub7o-cbcfa0162387.dat",
+      "https://cdn2.unrealengine.com/ksrzqyuw5xyzh9vh-b95af732eae3.dat"
+    ],
+    "nu": [
+      "2025-03-15T13:56:13.243Z",
+      "2023-12-12T22:30:00.000Z",
+      "2023-12-22T00:00:00.000Z",
+      "2024-01-12T22:00:00.000Z",
+      "2024-01-13T00:00:00.000Z"
+    ],
+    "qi": [
+      "{\"sid\":\"814e337e-545b-4fc0-9d41-18c89f7d2609\",\"pid\":\"82172ce9-30a4-4f11-a864-5c79054275aa\",\"stereoId\":\"98dffdd6-1f33-...",
+      "{\"sid\":\"fdcfbd06-5e9c-480a-acba-14e361691736\",\"pid\":\"d98eeaac-2bfa-4bf4-8a59-bdc95469c693\",\"stereoId\":\"9124b0b1-2bc4-...",
+      "{\"sid\":\"603c6f1c-5b2b-4d3f-9f1b-001399ce9258\",\"pid\":\"74819302-b2a0-49ff-b315-207fb33dfbb6\",\"stereoId\":\"e32a943b-4df5-...",
+      "{\"sid\":\"bbf51848-766c-4a29-8f7d-6478152a3369\",\"pid\":\"3cd83fde-9ba7-4eff-8801-e56df58c2065\",\"stereoId\":\"a8aab229-18ff-...",
+      "{\"sid\":\"83065524-b706-4aac-902a-5e122006dbbc\",\"pid\":\"495b2dcf-ddfd-4389-aa63-3b646a7f6abc\",\"stereoId\":\"51a37491-a2be-..."
+    ],
+    "ry": [
+      "2021",
+      "2020",
+      "2022",
+      "2023",
+      "2019"
+    ],
+    "sib": [
+      "Bass",
+      "Keyboard"
+    ],
+    "sid": [
+      "Drum"
+    ],
+    "sig": [
+      "Guitar",
+      "Keyboard"
+    ],
+    "siv": [
+      "Vocals",
+      "Keyboard"
+    ],
+    "sm": [
+      "Party_Hype",
+      "Anger_Agression",
+      "Loss_Regret",
+      "Trippy_Chill"
+    ],
+    "sn": [
+      "butterbarnhoedown",
+      "ogfutureremix",
+      "switchup",
+      "showthemwhoweare",
+      "takemehigher"
+    ],
+    "su": [
+      "6610181f-8c9f-46a4-82d1-b4a44bad9310",
+      "b78da097-2c16-4d23-8a31-7c1345c68db5",
+      "574c5462-742a-46d5-bbe0-e9e1696cc188",
+      "3d7901c9-7ae2-4adb-9393-4ec4c54c2e3b",
+      "d94d20ff-0213-4a62-8a4d-3b71bb5a1393"
+    ],
+    "tb": [
+      "https://cdn2.unrealengine.com/grgslg6puolgw2dc-128x128-c9e7fc0a9432.jpg",
+      "https://cdn2.unrealengine.com/ezuyiarcc6lxdjoj-64x64-93821749786e.jpg",
+      "https://cdn2.unrealengine.com/ezuyiarcc6lxdjoj-64x64-80618ad20076.jpg",
+      "https://cdn2.unrealengine.com/ezuyiarcc6lxdjoj-64x64-02e0129913be.jpg",
+      "https://cdn2.unrealengine.com/ezuyiarcc6lxdjoj-64x64-ca60491ecb29.jpg"
+    ],
+    "ti": [
+      "SparksSong:sid_placeholder_02",
+      "SparksSong:sid_placeholder_35",
+      "SparksSong:sid_placeholder_42",
+      "SparksSong:sid_placeholder_58",
+      "SparksSong:sid_placeholder_61"
+    ],
+    "tt": [
+      "Butter Barn Hoedown",
+      "OG (Future Remix)",
+      "Switch Up",
+      "Show Them Who We Are",
+      "Take Me Higher"
+    ]
+  },
+  "tracks_with_isrc": 518,
+  "tracks_without_isrc": 138
+}

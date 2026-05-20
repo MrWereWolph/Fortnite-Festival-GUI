@@ -441,3 +441,110 @@ select.input option {
     flex-direction: column;
   }
 }
+
+/* ============================================================
+   Jam Search Cards
+   ============================================================ */
+
+.jam-track-card .track-info {
+  min-height: 122px;
+}
+
+.jam-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.jam-meta span {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  color: rgba(230, 235, 255, 0.9);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.jam-bpm {
+  background: rgba(120, 60, 255, 0.22) !important;
+  border: 1px solid rgba(120, 60, 255, 0.25);
+}
+
+/* ============================================================
+   Main Search Cards
+   ============================================================ */
+
+.main-track-card .track-info {
+  padding: 12px;
+}
+
+.main-meta {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+
+.main-meta span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.085);
+  color: rgba(230, 235, 255, 0.88);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.difficulty-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.difficulty-row {
+  display: grid;
+  grid-template-columns: 76px 1fr 34px;
+  gap: 8px;
+  align-items: center;
+}
+
+.difficulty-label {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.difficulty-bars {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.difficulty-block {
+  height: 9px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.difficulty-block.filled {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.difficulty-value {
+  text-align: right;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.difficulty-row-na {
+  opacity: 0.42;
+}
+
+.difficulty-row-na .difficulty-block {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.difficulty-row-na .difficulty-value {
+  color: rgba(255, 255, 255, 0.48);
+}
