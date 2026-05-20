@@ -1,96 +1,85 @@
-import { useEffect, useState } from "react";
-import { supabase } from "./lib/supabaseClient";
+import { useState } from "react";
 import "./App.css";
 
+import JamSearchPage from "./pages/JamSearchPage";
+import MainSearchPage from "./pages/MainSearchPage";
+import ExportPage from "./pages/ExportPage";
+import SettingsPage from "./pages/SettingsPage";
+
+const TABS = [
+  {
+    id: "jam",
+    title: "Jam Search",
+    subtitle: "BPM, key, mode, Camelot",
+  },
+  {
+    id: "main",
+    title: "Main Search",
+    subtitle: "Length and difficulties",
+  },
+  {
+    id: "export",
+    title: "Export",
+    subtitle: "CSV, JSON, database",
+  },
+  {
+    id: "settings",
+    title: "Settings",
+    subtitle: "Local preferences",
+  },
+];
+
 export default function App() {
-  const [tracks, setTracks] = useState([]);
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [activeTab, setActiveTab] = useState("jam");
 
-  async function loadTracks(searchText = "") {
-    setLoading(true);
-    setErrorMessage("");
-
-    let query = supabase
-      .from("v_tracks_search")
-      .select(
-        "track_id, epic_slug, title, artist_display, album_art_url, bpm, musical_key, mode, camelot_code, duration_seconds, rating_code"
-      )
-      .order("title", { ascending: true })
-      .limit(24);
-
-    if (searchText.trim()) {
-      const value = `%${searchText.trim()}%`;
-      query = query.or(`title.ilike.${value},artist_display.ilike.${value}`);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      setErrorMessage(error.message);
-      setTracks([]);
-    } else {
-      setTracks(data ?? []);
-    }
-
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    loadTracks();
-  }, []);
-
-  function handleSubmit(event) {
-    event.preventDefault();
-    loadTracks(search);
+  function renderActiveTab() {
+    if (activeTab === "jam") return <JamSearchPage />;
+    if (activeTab === "main") return <MainSearchPage />;
+    if (activeTab === "export") return <ExportPage />;
+    if (activeTab === "settings") return <SettingsPage />;
+    return <JamSearchPage />;
   }
 
   return (
-    <main className="app-shell">
-      <section className="hero">
-        <p className="eyebrow">FNFest GUI5</p>
-        <h1>Fortnite Festival Jam Search</h1>
-        <p>
-          Search tracks by title or artist using the Supabase-backed GUI5 catalog.
-        </p>
+    <div className="shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-title">FNFest GUI5</div>
+          <div className="brand-sub muted">Fortnite Festival Tools</div>
+        </div>
 
-        <form onSubmit={handleSubmit} className="search-form">
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search title or artist..."
-          />
-          <button type="submit">Search</button>
-        </form>
-      </section>
+        <nav className="nav">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={`nav-item ${activeTab === tab.id ? "active" : ""}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              <span className="nav-title">{tab.title}</span>
+              <span className="nav-sub">{tab.subtitle}</span>
+            </button>
+          ))}
+        </nav>
 
-      {loading && <p className="status">Loading tracks...</p>}
-      {errorMessage && <p className="error">Error: {errorMessage}</p>}
+        <div className="sidebar-footer muted">
+          <span>Supabase</span>
+          <span className="dot">•</span>
+          <span>Vercel</span>
+        </div>
+      </aside>
 
-      <section className="track-grid">
-        {tracks.map((track) => (
-          <article key={track.track_id} className="track-card">
-            {track.album_art_url && (
-              <img src={track.album_art_url} alt={`${track.title} album art`} />
-            )}
+      <main className="main">
+        <header className="topbar">
+          <span className="status-pill">GUI5 Web Prototype</span>
+          <span className="spacer" />
+          <span className="status-pill">Catalog Online</span>
+        </header>
 
-            <div className="track-info">
-              <h2>{track.title}</h2>
-              <p>{track.artist_display}</p>
-
-              <div className="track-meta">
-                <span>{track.bpm} BPM</span>
-                <span>
-                  {track.musical_key} {track.mode}
-                </span>
-                <span>{track.camelot_code ?? "—"}</span>
-                <span>{track.rating_code}</span>
-              </div>
-            </div>
-          </article>
-        ))}
-      </section>
-    </main>
+        <div className="content">
+          {renderActiveTab()}
+        </div>
+      </main>
+    </div>
   );
 }
